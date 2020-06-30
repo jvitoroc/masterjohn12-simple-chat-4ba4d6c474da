@@ -11,5 +11,5 @@ Desenvolvi esse projeto para colocar em prática meu conhecimento de [network pr
  #### Alguns outros remarks:
 	
  - Criei meu próprio protocolo em cima do TCP - que lembra muito o HTTP - para a comunicação entre o cliente e servidor para a troca de mensagens (comandos, mensagens de texto, etc.).
- - Já que o UDP é um protocolo connectionless, desenvolvi uma library que cria uma camada em cima do protocolo que o torna connection-oriented, assim facilitando a implementação do comunicação via aúdio.
+ - Já que o UDP é um protocolo connectionless, desenvolvi uma library que cria uma camada em cima do protocolo que o torna connection-oriented, assim facilitando a implementação da comunicação via aúdio.
  - Aprendi mais sobre controle de concorrência enquanto aplicava o uso de tasks.

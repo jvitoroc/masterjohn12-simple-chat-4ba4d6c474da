@@ -1,10 +1,6 @@
-﻿using NAudio.Wave;
-using System;
-using System.IO;
+﻿using System;
+using System.Net;
 using System.Net.Sockets;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Common
@@ -12,41 +8,51 @@ namespace Common
     public class TCPDuplexCommunication : BaseDuplexCommunication
     {
         private NetworkStream stream;
-        private TcpClient client;
+        private TcpClient tcpClient;
 
-        private Thread thread;
+        public IPEndPoint RemoteIPEndPoint { get => (IPEndPoint)tcpClient.Client.RemoteEndPoint; }
+        public override bool Connected { get { return (bool)(tcpClient?.Connected); } }
 
         public TCPDuplexCommunication(TcpClient client)
         {
-            this.client = client;
+            this.tcpClient = client;
             this.stream = client.GetStream();
+        }
+
+        public TCPDuplexCommunication()
+        {}
+
+        public void Connect(IPEndPoint endPoint)
+        {
+            this.tcpClient = new TcpClient();
+            this.tcpClient.Connect(endPoint);
+            this.stream = this.tcpClient.GetStream();
+        }
+
+        public override void Disconnect()
+        {
+            if (Connected)
+            {
+                tcpClient.Close();
+            }
         }
 
         public override void StartListening()
         {
-            thread = new Thread(Listen);
-            thread.Start(this);
-        }
-
-        private static void Listen(object state)
-        {
-            TCPDuplexCommunication comm = (TCPDuplexCommunication)state;
             int intSize = sizeof(int);
-            while (true)
+            int packetSize;
+            Task.Run(() =>
             {
-                byte[] lengthBuffer = new byte[intSize];
-                int recv = comm.stream.Read(lengthBuffer, 0, lengthBuffer.Length);
-                if (recv == intSize)
+                while (true)
                 {
-                    int messageLen = BitConverter.ToInt32(lengthBuffer, 0);
-                    byte[] messageBuffer = new byte[messageLen];
-                    recv = comm.stream.Read(messageBuffer, 0, messageBuffer.Length);
-                    if (recv == messageLen)
-                    {
-                        comm.OnMessageReceived(messageBuffer);
-                    }
+                    byte[] buffer = new byte[intSize];
+                    this.stream.Read(buffer, 0, intSize);
+                    packetSize = BitConverter.ToInt32(buffer, 0);
+                    buffer = new byte[packetSize];
+                    this.stream.Read(buffer, 0, packetSize);
+                    Task.Run(() => { OnMessageReceived(buffer); });
                 }
-            }
+            });
         }
 
         protected override void OnMessageReceived(byte[] message)
@@ -72,5 +78,11 @@ namespace Common
 
             stream.Write(data, 0, data.Length);
         }
+
+        private Task WriteMessageAsync(byte[] message)
+        {
+            return Task.Run(() => WriteMessage(message));
+        }
     }
+
 }

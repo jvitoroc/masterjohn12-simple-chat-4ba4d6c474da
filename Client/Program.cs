@@ -8,7 +8,6 @@ namespace Client
 {
     class Program
     {
-
         public static ServerCommunication server;
         public static string name;
         public static string messages = "";
@@ -25,12 +24,10 @@ namespace Client
                 //server.UseAudioDriver(new AudioDriver());
                 Task.Run(() => RenderScreen());
 
-
                 while (true)
                 {
                     Console.ReadKey();
-                }
-                
+                }    
             }
             catch (ArgumentNullException e)
             {
@@ -53,14 +50,9 @@ namespace Client
                 
                 buffer = await tr.ReadLineAsync();
      
-                Message m = new Message();
-                m.type = PacketType.Text;
-                m.message = buffer;
-                m.from = name;
+                server.SendTextMessage(buffer);
 
                 buffer = "";
-
-                //server.WriteMessage(m);
             }
         }
     }

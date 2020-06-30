@@ -1,51 +1,58 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
-using System.Threading;
+﻿using System.Net;
 using System.Threading.Tasks;
+using UDP;
 
 namespace Common
-{    
+{
     public class UDPDuplexCommunication : BaseDuplexCommunication
     {
-        private UdpClient client;
+        private UDPClient udpClient;
 
-        private Thread thread;
+        public IPEndPoint RemoteIPEndPoint { get => udpClient.RemoteIPEndPoint; }
+        public override bool Connected { get { return (bool)(udpClient?.Connected); } }
 
-        public UDPDuplexCommunication(UdpClient client)
+        public UDPDuplexCommunication(UDPClient udpClient)
         {
-            this.client = client;
+            this.udpClient = udpClient;
         }
-        public override void StartListening()
+        
+        public UDPDuplexCommunication()
+        { }
+
+        public void Connect(IPEndPoint endPoint)
         {
-            thread = new Thread(Listen);
-            thread.Start(this);
+            this.udpClient = new UDPClient();
+            this.udpClient.Connect(endPoint);
         }
 
-        private static void Listen(object state)
+        public override void Disconnect()
         {
-            UDPDuplexCommunication comm = (UDPDuplexCommunication)state;
-            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 0);
-            while (true)
+            if (Connected)
             {
-                byte[] data = comm.client.Receive(ref ipEndPoint);
-                comm.OnMessageReceived(data);
+                udpClient.Close();
             }
         }
 
-        protected override void OnMessageReceived(byte[] message){
+        public override void StartListening()
+        {
+            Task.Run(() =>
+            {
+                while (true)
+                {
+                    byte[] buffer = this.udpClient.Receive();
+                    OnMessageReceived(buffer);
+                }
+            });
+        }
+
+        protected override void OnMessageReceived(byte[] message)
+        {
             base.OnMessageReceived(message);
         }
 
         public override void WriteMessage(byte[] message)
         {
-            client.Send(message, message.Length);
+            udpClient.Send(message, message.Length);
         }
     }
 }

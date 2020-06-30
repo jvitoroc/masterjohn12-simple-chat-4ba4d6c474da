@@ -1,14 +1,16 @@
 ﻿using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Common;
+using NAudio.Wave;
 
 namespace Client
-{
-
+{ 
     class ServerCommunication
     {
-        private UDPDuplexCommunication audio;
+        private AudioDriver audioDriver;
+        private UDPDuplexCommunication audio = null;
         private TCPDuplexCommunication text;
 
         private Guid id;
@@ -18,13 +20,26 @@ namespace Client
             text = new TCPDuplexCommunication(client);
             text.MessageReceived += OnTextMessageReceived;
             text.StartListening();
+
+            UdpClient udpClient = new UdpClient();
+            udpClient.Connect("localhost", 13001);
+            audio = new UDPDuplexCommunication(udpClient, (IPEndPoint)client.Client.RemoteEndPoint);
+
+            audioDriver = new AudioDriver();
+            audioDriver.StartRecording();
+            audioDriver.DataAvailable += OnAudioDataAvailable;
+        }
+
+        private void OnAudioDataAvailable(object sender, WaveInEventArgs waveInEventArgs)
+        {
+            audio.WriteMessage(waveInEventArgs.Buffer);
         }
 
         private void OnTextMessageReceived(byte[] message)
         {
             Message m = Message.Convert(message);
-
-            DefineID(m);
+            Console.WriteLine(m.message);
+            //DefineID(m);
         }
 
         private void OnAudioDataReceived(byte[] message)
@@ -34,12 +49,20 @@ namespace Client
 
         public void SendTextMessage(string message)
         {
-            text?.WriteMessage(Encoding.UTF8.GetBytes(message));
+            Message m = new Message();
+            m.message = message;
+            m.headers.Add("type", "message");
+            SendTextMessage(m);
+        } 
+
+        public void SendTextMessage(Message message)
+        {
+            SendMessage(Message.Convert(message));
         }
 
-        public void SendAudioData(byte[] data)
+        private void SendMessage(byte[] message)
         {
-            audio?.WriteMessage(data);
+            text?.WriteMessage(message);
         }
 
         private void DefineID(Message message)
@@ -56,9 +79,8 @@ namespace Client
         {
             if(id != Guid.Empty && audio == null)
             {
-                UdpClient client = new UdpClient();
-                client.Connect("localhost", 3001);
-                audio = new UDPDuplexCommunication(client);
+                
+                //
                 audio.StartListening();
                 audio.WriteMessage(Encoding.ASCII.GetBytes(id.ToString()));
             }
